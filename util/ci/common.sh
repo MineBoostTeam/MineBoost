@@ -4,18 +4,14 @@
 install_linux_deps() {
 	local pkgs=(
 		cmake gettext postgresql
-		libpng-dev libjpeg-dev libxi-dev libgl1-mesa-dev
+		libpng-dev libjpeg-dev libxi-dev libx11-dev libxxf86vm-dev libgl1-mesa-dev
 		libsqlite3-dev libhiredis-dev libogg-dev libgmp-dev libvorbis-dev
 		libopenal-dev libpq-dev libleveldb-dev libcurl4-openssl-dev libzstd-dev
 	)
 
-	if [[ "$1" == "--no-irr" ]]; then
-		shift
-	else
-		local ver=$(cat misc/irrlichtmt_tag.txt)
-		wget "https://github.com/minetest/irrlicht/releases/download/$ver/ubuntu-bionic.tar.gz"
-		sudo tar -xaf ubuntu-bionic.tar.gz -C /usr/local
-	fi
+	# IrrlichtMt is vendored in lib/irrlichtmt, nothing to download.
+	# (--no-irr is still accepted for compatibility.)
+	[[ "$1" == "--no-irr" ]] && shift
 
 	sudo apt-get update
 	sudo apt-get install -y --no-install-recommends "${pkgs[@]}" "$@"

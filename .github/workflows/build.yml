@@ -12,6 +12,7 @@ on:
       - 'cmake/Modules/**'
       - 'util/buildbot/**'
       - 'util/ci/**'
+      - 'misc/irrlichtmt_tag.txt'
       - '.github/workflows/**.yml'
   pull_request:
     paths:
@@ -23,28 +24,29 @@ on:
       - 'cmake/Modules/**'
       - 'util/buildbot/**'
       - 'util/ci/**'
+      - 'misc/irrlichtmt_tag.txt'
       - '.github/workflows/**.yml'
 
 env:
   MINETEST_POSTGRESQL_CONNECT_STRING: 'host=localhost user=minetest password=minetest dbname=minetest'
 
 jobs:
-  # Older gcc version (should be close to our minimum supported version)
-  gcc_7:
-    runs-on: ubuntu-20.04
+  # Older gcc version
+  gcc_9:
+    runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
       - name: Install deps
         run: |
           source ./util/ci/common.sh
-          install_linux_deps g++-7
+          install_linux_deps g++-9
 
       - name: Build
         run: |
           ./util/ci/build.sh
         env:
-          CC: gcc-7
-          CXX: g++-7
+          CC: gcc-9
+          CXX: g++-9
 
       - name: Test
         run: |
@@ -72,21 +74,21 @@ jobs:
           ./bin/minetest --run-unittests
 
   # Older clang version (should be close to our minimum supported version)
-  clang_7:
-    runs-on: ubuntu-20.04
+  clang_11:
+    runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
       - name: Install deps
         run: |
           source ./util/ci/common.sh
-          install_linux_deps clang-7 valgrind
+          install_linux_deps clang-11 valgrind
 
       - name: Build
         run: |
           ./util/ci/build.sh
         env:
-          CC: clang-7
-          CXX: clang++-7
+          CC: clang-11
+          CXX: clang++-11
 
       - name: Unittest
         run: |
@@ -122,15 +124,15 @@ jobs:
           ./util/test_multiplayer.sh
 
   # Build with prometheus-cpp (server-only)
-  clang_9_prometheus:
-    name: "clang_9 (PROMETHEUS=1)"
-    runs-on: ubuntu-20.04
+  clang_11_prometheus:
+    name: "clang_11 (PROMETHEUS=1)"
+    runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
       - name: Install deps
         run: |
           source ./util/ci/common.sh
-          install_linux_deps clang-9
+          install_linux_deps clang-11
 
       - name: Build prometheus-cpp
         run: |
@@ -140,8 +142,8 @@ jobs:
         run: |
           ./util/ci/build.sh
         env:
-          CC: clang-9
-          CXX: clang++-9
+          CC: clang-11
+          CXX: clang++-11
           CMAKE_FLAGS: "-DENABLE_PROMETHEUS=1 -DBUILD_CLIENT=0"
 
       - name: Test
@@ -150,14 +152,14 @@ jobs:
 
   win32:
     name: "MinGW cross-compiler (32-bit)"
-    runs-on: ubuntu-20.04
+    # prebuilt deps come from a third-party host; do not fail the whole run
+    continue-on-error: true
+    runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
       - name: Install compiler
         run: |
-          sudo apt-get update && sudo apt-get install -y gettext
-          wget http://minetest.kitsunemimi.pw/mingw-w64-i686_11.2.0_ubuntu20.04.tar.xz -O mingw.tar.xz
-          sudo tar -xaf mingw.tar.xz -C /usr
+          sudo apt-get update && sudo apt-get install -y gettext unzip wget gcc-mingw-w64-i686-posix g++-mingw-w64-i686-posix
 
       - name: Build
         run: |
@@ -171,14 +173,13 @@ jobs:
 
   win64:
     name: "MinGW cross-compiler (64-bit)"
-    runs-on: ubuntu-20.04
+    continue-on-error: true
+    runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
       - name: Install compiler
         run: |
-          sudo apt-get update && sudo apt-get install -y gettext
-          wget http://minetest.kitsunemimi.pw/mingw-w64-x86_64_11.2.0_ubuntu20.04.tar.xz -O mingw.tar.xz
-          sudo tar -xaf mingw.tar.xz -C /usr
+          sudo apt-get update && sudo apt-get install -y gettext unzip wget gcc-mingw-w64-x86-64-posix g++-mingw-w64-x86-64-posix
 
       - name: Build
         run: |
@@ -191,24 +192,22 @@ jobs:
           path: winbuild/
 
   msvc:
-    name: VS 2019 ${{ matrix.config.arch }}-${{ matrix.type }}
-    runs-on: windows-2019
+    name: VS 2022 ${{ matrix.config.arch }}-${{ matrix.type }}
+    runs-on: windows-2022
     env:
-      VCPKG_VERSION: 8eb57355a4ffb410a2e94c07b4dca2dffbee8e50
-      # 2023.10.19
-      vcpkg_packages: zlib zstd curl[winssl] openal-soft libvorbis libogg libjpeg-turbo sqlite3 freetype luajit gmp jsoncpp opengl-registry
+      vcpkg_packages: zlib zstd curl[schannel] openal-soft libvorbis libogg libjpeg-turbo sqlite3 freetype luajit gmp jsoncpp opengl-registry
     strategy:
       fail-fast: false
       matrix:
         config:
           - {
               arch: x86,
-              generator: "-G'Visual Studio 16 2019' -A Win32",
+              generator: "-G'Visual Studio 17 2022' -A Win32",
               vcpkg_triplet: x86-windows
             }
           - {
               arch: x64,
-              generator: "-G'Visual Studio 16 2019' -A x64",
+              generator: "-G'Visual Studio 17 2022' -A x64",
               vcpkg_triplet: x64-windows
             }
         type: [portable]
@@ -219,24 +218,16 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Checkout IrrlichtMt
+      - name: Install dependencies with vcpkg
+        shell: pwsh
         run: |
-          $ref = @(Get-Content misc\irrlichtmt_tag.txt)
-          git clone https://github.com/minetest/irrlicht lib\irrlichtmt --depth 1 -b $ref[0]
-
-      - name: Restore from cache and run vcpkg
-        uses: lukka/run-vcpkg@v7
-        with:
-          vcpkgArguments: ${{env.vcpkg_packages}}
-          vcpkgDirectory: '${{ github.workspace }}\vcpkg'
-          appendedCacheKey: ${{ matrix.config.vcpkg_triplet }}
-          vcpkgGitCommitId: ${{ env.VCPKG_VERSION }}
-          vcpkgTriplet: ${{ matrix.config.vcpkg_triplet }}
+          vcpkg install $env:vcpkg_packages.Split(' ') --triplet ${{ matrix.config.vcpkg_triplet }}
 
       - name: Minetest CMake
         run: |
           cmake ${{matrix.config.generator}}  `
-          -DCMAKE_TOOLCHAIN_FILE="${{ github.workspace }}\vcpkg\scripts\buildsystems\vcpkg.cmake"  `
+          -DCMAKE_TOOLCHAIN_FILE="C:\vcpkg\scripts\buildsystems\vcpkg.cmake"  `
+          -DVCPKG_TARGET_TRIPLET=${{ matrix.config.vcpkg_triplet }}  `
           -DCMAKE_BUILD_TYPE=Release  `
           -DENABLE_POSTGRESQL=OFF  `
           -DENABLE_LUAJIT=TRUE  `
