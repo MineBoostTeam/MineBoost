@@ -204,6 +204,15 @@ if(ENABLE_PROMETHEUS)
 	find_library(PROMETHEUS_CORE_LIBRARY NAMES prometheus-cpp-core)
 	if(PROMETHEUS_CPP_INCLUDE_DIR AND PROMETHEUS_PULL_LIBRARY AND PROMETHEUS_CORE_LIBRARY)
 		set(PROMETHEUS_LIBRARIES ${PROMETHEUS_PULL_LIBRARY} ${PROMETHEUS_CORE_LIBRARY})
+		# Newer prometheus-cpp no longer bundles civetweb inside
+		# libprometheus-cpp-pull; it must be linked separately (otherwise the
+		# final link fails with "undefined reference to CivetServer::.../mg_*").
+		# Optional: older prometheus-cpp builds that vendor it don't need it.
+		find_library(CIVETWEB_CPP_LIBRARY NAMES civetweb-cpp)
+		find_library(CIVETWEB_LIBRARY NAMES civetweb)
+		if(CIVETWEB_CPP_LIBRARY AND CIVETWEB_LIBRARY)
+			list(APPEND PROMETHEUS_LIBRARIES ${CIVETWEB_CPP_LIBRARY} ${CIVETWEB_LIBRARY})
+		endif()
 		set(USE_PROMETHEUS TRUE)
 		include_directories(${PROMETHEUS_CPP_INCLUDE_DIR})
 	endif(PROMETHEUS_CPP_INCLUDE_DIR AND PROMETHEUS_PULL_LIBRARY AND PROMETHEUS_CORE_LIBRARY)

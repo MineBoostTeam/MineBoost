@@ -195,7 +195,7 @@ jobs:
     name: VS 2022 ${{ matrix.config.arch }}-${{ matrix.type }}
     runs-on: windows-2022
     env:
-      vcpkg_packages: zlib zstd curl[schannel] openal-soft libvorbis libogg libjpeg-turbo sqlite3 freetype luajit gmp jsoncpp opengl-registry
+      vcpkg_packages: zlib zstd curl openal-soft libvorbis libogg libjpeg-turbo sqlite3 freetype luajit gmp jsoncpp opengl-registry
     strategy:
       fail-fast: false
       matrix:
